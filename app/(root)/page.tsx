@@ -15,7 +15,8 @@ const Home = () => {
             height={600}
           />  
         </div>
-        <div className=" md:col-span-1 xl:col-span-2">          <TradingViewWidget 
+        <div className=" md:col-span-1 xl:col-span-2">          
+          <TradingViewWidget 
             title = "Stock Heatmap"
             scriptUrl="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
             config={HEATMAP_WIDGET_CONFIG}

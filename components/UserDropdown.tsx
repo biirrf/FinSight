@@ -16,19 +16,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "./ui/button"
 import NavItems from "./NavItems"
 import { LogOut } from "lucide-react"
+import { signOut } from "@/lib/actions/auth.actions"
 
-const UserDropdown = () => {
+const UserDropdown = ({user}:{user:User}) => {
     const router = useRouter();
 
     const handleSignOut = async () => {
-        // Implement sign-out logic here
-        // After sign-out, redirect to home page
+        await signOut();
         router.push("/sign-in");
     }
-
-    // Dummy user data
-    const user = { name: "Mohaned", email: "muhanedzaeem@gmail.com" };
-
 
 // https://ui.shadcn.com/docs/components/avatar
   return (

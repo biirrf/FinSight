@@ -207,6 +207,13 @@ declare global {
         related?: string;
     };
 
+    type UserForNewsEmail = {
+        id: string;
+        email: string;
+        name: string;
+        country?: string;
+    };
+
     type Alert = {
         id: string;
         symbol: string;

@@ -5,11 +5,14 @@ import FooterLink from "@/components/form/FooterLink";
 import InputField from "@/components/form/InputField";
 import SelectField from "@/components/form/SelectField";
 import { Button } from "@/components/ui/button";
+import { signUpWithEmail } from "@/lib/actions/auth.actions";
 import { INVESTMENT_GOALS, PREFERRED_INDUSTRIES, RISK_TOLERANCE_OPTIONS } from "@/lib/constants";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-const SignUpPage = () => {
-
+const SignUpPage = () => { 
+    const router = useRouter();
     const { register, handleSubmit, control, formState: { errors,isSubmitting } } = useForm<SignUpFormData>({
         defaultValues: {
             fullName: '',
@@ -21,13 +24,25 @@ const SignUpPage = () => {
             preferredIndustry: ''
         }, mode: 'onBlur'
     });
-    const onSubmit = async(data: SignUpFormData) => {
-        try {
-            console.log("Form submitted:", data);
-            // Handle form submission logic here, e.g., send data to the server
-        } catch (error) {
-            console.error("Error submitting form:", error);
+    const onSubmit = async (data: SignUpFormData) => {
+      try {
+        const result = await signUpWithEmail(data);
+
+        if (result.success) {
+          toast.success('Account created! Redirecting...');
+          // Give the user a short moment to see the toast before redirecting
+          setTimeout(() => router.push('/'), 800);
+          return;
         }
+
+        // If the server returned a failure, show the message if available
+        toast.error(result.message || 'Sign up failed. Please try again.');
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        const msg = error instanceof Error ? error.message : 'Failed to create an account.';
+        toast.error('Sign up failed. Please try again.');
+        console.error(msg);
+      }
     };
     
     return (

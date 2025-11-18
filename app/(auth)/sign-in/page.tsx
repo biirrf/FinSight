@@ -4,6 +4,9 @@ import FooterLink from "@/components/form/FooterLink";
 import InputField from "@/components/form/InputField";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { signInWithEmail } from "@/lib/actions/auth.actions";
 
 type SignInFormData = {
   email: string;
@@ -11,6 +14,7 @@ type SignInFormData = {
 };
 
 const SignInPage = () => {
+  const router = useRouter()
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SignInFormData>({
     defaultValues: {
       email: '',
@@ -21,12 +25,42 @@ const SignInPage = () => {
 
   const onSubmit = async (data: SignInFormData) => {
     try {
-      console.log("Form submitted:", data);
-      // Handle sign-in logic here
+      const result = await signInWithEmail(data);
+      if (result.success) {
+        toast.success('Signed in! Redirecting...');
+        setTimeout(() => router.push('/'), 800);
+        return;
+      }
+      toast.error(result.message || 'Sign in failed. Please try again.');
     } catch (error) {
-      console.error("Error signing in:", error);
+      console.error(error);
+      toast.error('Sign in failed. Please try again.', {
+        description: error instanceof Error ? error.message : 'Failed to sign in.',
+      });
     }
   };
+
+  /*const onSubmit = async (data: SignUpFormData) => {
+      try {
+        const result = await signUpWithEmail(data);
+
+        if (result.success) {
+          toast.success('Account created! Redirecting...');
+          // Give the user a short moment to see the toast before redirecting
+          setTimeout(() => router.push('/'), 800);
+          return;
+        }
+
+        // If the server returned a failure, show the message if available
+        toast.error(result.message || 'Sign up failed. Please try again.');
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        const msg = error instanceof Error ? error.message : 'Failed to create an account.';
+        toast.error('Sign up failed. Please try again.');
+        console.error(msg);
+      }
+    };
+    */
 
   return (
     <>

@@ -45,7 +45,12 @@ const Layout = async ({children}: {children : React.ReactNode}) => {
             </div>
 
             <div className="flex-1 relative">
-                <Image src = "/assets/images/dashboard.png" alt = "Dashboard Preview" width={1440} height={1150} className="auth-dashboard-preview absolute top-0" />                         
+                <div className="auth-placeholder absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-700 rounded-lg p-8">
+                    <div className="text-center">
+                        <Image src="/assets/icons/logo3.svg" alt="FinSight Logo" width={140} height={32} className='mx-auto mb-4' />
+                        <p className="text-gray-400 max-w-xs mx-auto">Secure market insights, curated for you. Sign up to get personalized summaries, alerts, and watchlists.</p>
+                    </div>
+                </div>
             </div>
         </section>   
     </main>

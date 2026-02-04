@@ -9,15 +9,8 @@ export const transporter = nodemailer.createTransport({
     },
 });
 
-// Verify transporter configuration on startup to catch auth/config issues early
-transporter.verify().then(() => {
-    console.info('Nodemailer transporter verified successfully');
-}).catch((err) => {
-    console.error('Nodemailer transporter verification failed. Check NODEMAILER_EMAIL and NODEMAILER_PASSWORD, and ensure Gmail app passwords or OAuth is configured. Error:', err);
-});
-
 export const sendWelcomeEmail = async ({email, name, intro}:WelcomeEmailData) => {
-    const htmlTemplate = WELCOME_EMAIL_TEMPLATE.replace('{{name}}', name).replace('{{intro}}', intro);
+    const htmlTemplate = WELCOME_EMAIL_TEMPLATE.replace('{{name}}', name).replace('{{intro}}', intro);  
 
     const mailOptions = {
         from: `"FinSight" <finsight@noreply.com>`,
@@ -27,15 +20,7 @@ export const sendWelcomeEmail = async ({email, name, intro}:WelcomeEmailData) =>
         html: htmlTemplate,
     }
 
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.info(`Welcome email sent to ${email}: ${info.messageId}`);
-        return true;
-    } catch (err) {
-        console.error(`Failed to send welcome email to ${email}:`, err);
-        // Re-throw to let callers decide how to handle failures, or return false if preferred
-        throw err;
-    }
+    await transporter.sendMail(mailOptions);
 }
 
 export const sendNewsSummaryEmail = async (
@@ -52,11 +37,6 @@ export const sendNewsSummaryEmail = async (
         text: `Today's market news summary from FinSight`,
         html: htmlTemplate,
     };
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.info(`News summary email sent to ${email}: ${info.messageId}`);
-    } catch (err) {
-        console.error(`Failed to send news summary email to ${email}:`, err);
-        throw err;
-    }
+
+    await transporter.sendMail(mailOptions);
 };

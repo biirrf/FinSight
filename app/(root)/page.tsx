@@ -17,7 +17,7 @@ const Home = () => {
         </div>
         <div className=" md:col-span-1 xl:col-span-2">          
           <TradingViewWidget 
-            title = "Stock Heatmap"
+            title = "Market Heatmap"
             scriptUrl="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
             config={HEATMAP_WIDGET_CONFIG}
             height={600}
@@ -36,7 +36,7 @@ const Home = () => {
         </div>
         <div className="h-full md:col-span-1 xl:col-span-2">          
           <TradingViewWidget 
-            scriptUrl="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js"
+            scriptUrl="https://s3.tradingview.com/external-embedding/embed-widget-crypto-coins-heatmap.js"
             config={MARKET_DATA_WIDGET_CONFIG}
             height={600}
           />  

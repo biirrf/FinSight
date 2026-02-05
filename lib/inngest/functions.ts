@@ -41,6 +41,8 @@ export const sendSignUpEmail = inngest.createFunction(
             return await sendWelcomeEmail({ email, name, intro: introText });
         })
 
+        // Sample news summary is now handled by `sendDailyNewsSummary` when triggered by `app/user.created`.
+
         return {
             success: true,
             message: 'Welcome email sent successfully'
@@ -50,40 +52,79 @@ export const sendSignUpEmail = inngest.createFunction(
 
 export const sendDailyNewsSummary = inngest.createFunction(
     { id: 'daily-news-summary' },
-    [ { event: 'app/send.daily.news' }, { cron: '0 12 * * *' } ],
-    async ({ step }) => {
-        // Step 1: Get all users for news delivery
-        const users = (await step.run('get-all-users', getAllUsersForNewsEmail)) as UserForNewsEmail[];
-
-        if (!users || users.length === 0) return { success: false, message: 'No users found for news email' };
-
-        // Step 2: For each user, get watchlist symbols -> fetch news (fallback to general)
-        const results = (await step.run('fetch-user-news', async () => {
-            const perUser: Array<{ user: UserForNewsEmail; articles: MarketNewsArticle[] }> = [];
-            for (const user of users) {
-                try {
-                    const symbols = await getWatchlistSymbolsByEmail(user.email);
-                    let articles = await getNews(symbols);
-                    // Enforce max 6 articles per user
-                    articles = (articles || []).slice(0, 6);
-                    // If still empty, fallback to general
-                    if (!articles || articles.length === 0) {
-                        articles = await getNews();
-                        articles = (articles || []).slice(0, 6);
-                    }
-                    perUser.push({ user, articles });
-                } catch (e) {
-                    console.error('daily-news: error preparing user news', user.email, e);
-                    perUser.push({ user, articles: [] });
+    [ { event: 'app/send.daily.news' }, { cron: '0 12 * * *' }, { event: 'app/user.created' } ],
+    async ({ event, step }) => {
+        // If triggered by user signup event, send only to that user
+        if (event && event.name === 'app/user.created') {
+            try {
+                const email = event.data.email as string;
+                if (!email) {
+                    console.warn('sendDailyNewsSummary triggered by signup but no email provided in event.data');
+                    return { success: false, message: 'No email in signup event' };
                 }
+
+                // Get watchlist symbols for the new user
+                const symbols = await getWatchlistSymbolsByEmail(email);
+                let articles = await getNews(symbols);
+                articles = (articles || []).slice(0, 6);
+                if (!articles || articles.length === 0) {
+                    articles = await getNews();
+                    articles = (articles || []).slice(0, 6);
+                }
+
+                const prompt = NEWS_SUMMARY_EMAIL_PROMPT.replace('{{newsData}}', JSON.stringify(articles, null, 2));
+
+                const response = await step.ai.infer(`summarize-news-${email}`, {
+                    model: step.ai.models.gemini({ model: 'gemini-2.5-flash-lite' }),
+                    body: { contents: [{ role: 'user', parts: [{ text: prompt }]}] }
+                });
+
+                const part = response.candidates?.[0]?.content?.parts?.[0];
+                const newsContent = (part && 'text' in part ? part.text : null) || 'No market news.';
+
+                await sendNewsSummaryEmail({ email, date: getFormattedTodayDate(), newsContent });
+
+                return { success: true, message: 'Sample news summary sent to new user' };
+            } catch (e) {
+                console.error('sendDailyNewsSummary (signup): failed for new user', e);
+                return { success: false, message: 'Failed to send sample news on signup' };
             }
-            return perUser;
-        })) as Array<{ user: UserForNewsEmail; articles: MarketNewsArticle[] }>;
+        }
 
-        // Step 3: Summarize news via AI
-        const userNewsSummaries: { user: UserForNewsEmail; newsContent: string | null }[] = [];
+        // Otherwise handle daily/cron run for all users
+        try {
+            // Step 1: Get all users for news delivery
+            const users = (await step.run('get-all-users', getAllUsersForNewsEmail)) as UserForNewsEmail[];
 
-        for (const { user, articles } of results) {
+            if (!users || users.length === 0) return { success: false, message: 'No users found for news email' };
+
+            // Step 2: For each user, get watchlist symbols -> fetch news (fallback to general)
+            const results = (await step.run('fetch-user-news', async () => {
+                const perUser: Array<{ user: UserForNewsEmail; articles: MarketNewsArticle[] }> = [];
+                for (const user of users) {
+                    try {
+                        const symbols = await getWatchlistSymbolsByEmail(user.email);
+                        let articles = await getNews(symbols);
+                        // Enforce max 6 articles per user
+                        articles = (articles || []).slice(0, 6);
+                        // If still empty, fallback to general
+                        if (!articles || articles.length === 0) {
+                            articles = await getNews();
+                            articles = (articles || []).slice(0, 6);
+                        }
+                        perUser.push({ user, articles });
+                    } catch (e) {
+                        console.error('daily-news: error preparing user news', user.email, e);
+                        perUser.push({ user, articles: [] });
+                    }
+                }
+                return perUser;
+            })) as Array<{ user: UserForNewsEmail; articles: MarketNewsArticle[] }>;
+
+            // Step 3: Summarize news via AI
+            const userNewsSummaries: { user: UserForNewsEmail; newsContent: string | null }[] = [];
+
+            for (const { user, articles } of results) {
                 try {
                     const prompt = NEWS_SUMMARY_EMAIL_PROMPT.replace('{{newsData}}', JSON.stringify(articles, null, 2));
 
@@ -104,8 +145,8 @@ export const sendDailyNewsSummary = inngest.createFunction(
                 }
             }
 
-        // Step 4: Send the emails
-        await step.run('send-news-emails', async () => {
+            // Step 4: Send the emails
+            await step.run('send-news-emails', async () => {
                 await Promise.all(
                     userNewsSummaries.map(async ({ user, newsContent}) => {
                         if(!newsContent) return false;
@@ -115,6 +156,15 @@ export const sendDailyNewsSummary = inngest.createFunction(
                 )
             })
 
-        return { success: true, message: 'Daily news summary emails sent successfully' }
+            return { success: true, message: 'Daily news summary emails sent successfully' }
+        } catch (err) {
+            console.error('sendDailyNewsSummary (cron): failed', err);
+            return { success: false, message: 'Failed to send daily news summaries' };
+        }
     }
 )
+
+export const functions = [sendSignUpEmail, sendDailyNewsSummary];
+
+// Explicit named exports to ensure static analysis (Turbopack) sees all exports
+export { sendSignUpEmail, sendDailyNewsSummary, functions };

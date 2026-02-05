@@ -16,20 +16,29 @@ export const signUpWithEmail = async ({email, password, fullName, country, inves
 
         if (response) {
             try {
+                const eventData = {
+                    email,
+                    name: fullName,
+                    country,
+                    investmentGoals,
+                    riskTolerance,
+                    preferredIndustry
+                };
+                console.log('[Signup] Sending app/user.created event:', { email, name: fullName });
                 await inngest.send({
                     name: 'app/user.created',
-                    data: {
-                        email,
-                        name: fullName,
-                        country,
-                        investmentGoals,
-                        riskTolerance,
-                        preferredIndustry
-                    }
+                    data: eventData
                 });
+                console.log('[Signup] Event sent successfully for:', email);
             } catch (evErr) {
                 // Log event-send errors but don't fail the entire sign-up flow
-                console.error('Inngest event send failed:', evErr);
+                console.error('[Signup] Inngest event send failed:', {
+                    email,
+                    error: evErr instanceof Error ? evErr.message : String(evErr),
+                    stack: evErr instanceof Error ? evErr.stack : undefined,
+                    eventKeyConfigured: !!process.env.INNGEST_EVENT_KEY,
+                    apiKeyConfigured: !!process.env.INNGEST_API_KEY,
+                });
             }
         }
 

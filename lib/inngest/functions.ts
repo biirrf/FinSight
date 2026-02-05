@@ -6,6 +6,31 @@ import { getNews } from "@/lib/actions/finnhub.actions";
 import { getFormattedTodayDate } from "@/lib/utils";
 import { getWatchlistSymbolsByEmail } from "@/lib/actions/watchlist.actions";
 
+/**
+ * Debug handler for testing Inngest event delivery.
+ * Triggered by /api/inngest-test route to verify events reach Inngest Cloud.
+ */
+export const debugTestHandler = inngest.createFunction(
+    { id: 'debug-test-handler' },
+    { event: 'debug/test' },
+    async ({ event, step }) => {
+        console.log('[Debug Test] Received debug/test event:', event.data);
+        
+        await step.run('log-test-event', async () => {
+            const message = `✓ Inngest event delivery verified at ${new Date().toISOString()}`;
+            console.log('[Debug Test]', message, event.data);
+            return { success: true, message, receivedData: event.data };
+        });
+
+        return {
+            success: true,
+            message: 'Debug test event processed successfully',
+            timestamp: new Date().toISOString(),
+            receivedData: event.data,
+        };
+    }
+);
+
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email' },
     { event: 'app/user.created'},
@@ -164,7 +189,4 @@ export const sendDailyNewsSummary = inngest.createFunction(
     }
 )
 
-export const functions = [sendSignUpEmail, sendDailyNewsSummary];
-
-// Explicit named exports to ensure static analysis (Turbopack) sees all exports
-export { sendSignUpEmail, sendDailyNewsSummary, functions };
+export const functions = [debugTestHandler, sendSignUpEmail, sendDailyNewsSummary];

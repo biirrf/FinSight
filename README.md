@@ -1,3 +1,58 @@
+# FinSight – AI Financial Intelligence Dashboard
+
+## Overview
+
+FinSight is an AI-powered financial intelligence dashboard with an integrated OSIRIS RAG (Retrieval-Augmented Generation) system for contextual research and citation-backed answers.
+
+## Features
+
+- Interactive market dashboard and stock pages
+- Watchlists and user authentication
+- OSIRIS RAG system for contextual retrieval and citations
+- Background job/event integration with Inngest
+
+## OSIRIS (RAG System)
+
+OSIRIS provides retrieval-augmented responses by querying indexed documents and combining them with foundation-model answers. It returns citations for traceability and is integrated into the dashboard for research workflows.
+
+## Tech Stack
+
+- Next.js (App Router)
+- TypeScript
+- MongoDB (Mongoose)
+- OpenAI (or compatible LLM providers)
+- Inngest (background events)
+- Nodemailer for email flows
+
+## Architecture Overview
+
+The application uses a Next.js frontend (app directory) with server-side components and API routes. OSIRIS handles retrieval and prompt orchestration in the `lib/osiris` and `lib/inngest` modules. Persistent data is stored in MongoDB.
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Create a `.env` file from `.env.example` and fill values (do NOT commit secrets)
+4. Run development: `npm run dev`
+
+## Environment Variables Required
+
+Fill these in a local `.env` (do not commit):
+- NODE_ENV
+- NEXT_PUBLIC_BASE_URL
+- MONGODB_URI
+- BETTER_AUTH_SECRET
+- BETTER_AUTH_URL
+- GEMINI_API_KEY
+- OPENAI_API_KEY
+- NODEMAILER_EMAIL
+- NODEMAILER_PASSWORD
+- INNGEST_EVENT_KEY
+- NEXT_PUBLIC_FINNHUB_API_KEY
+
+## Academic Context
+
+This project is a Final Year Project demonstrating a practical OSIRIS RAG integration with an interactive dashboard for financial intelligence.
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

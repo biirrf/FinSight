@@ -5,28 +5,40 @@ import { Button } from "@/components/ui/button"
 
 const EXAMPLES = [
   {
+    id: "osiris",
+    label: "What is OSIRIS?",
+    desc: "Understand what the system can and can’t do, plus sample questions.",
+    question: "What is OSIRIS? Explain what you can answer, what you can’t answer, and give 5 example questions I can ask.",
+  },
+  {
     id: "tsla",
     label: "TSLA earnings",
-    desc: "Summarise what our stored sources say about Tesla’s latest results.",
-    question: "Summarise what our stored sources say about Tesla’s latest results.",
+    desc: "What happened in Tesla’s latest earnings?",
+    question: "What happened in Tesla’s latest earnings?",
   },
   {
     id: "bitcoin",
     label: "Bitcoin update",
-    desc: "Pull crypto highlights from the summaries and cite sources.",
-    question: "Pull crypto highlights from the stored summaries and cite sources.",
+    desc: "What’s the latest with Bitcoin?",
+    question: "What’s the latest with Bitcoin?",
   },
   {
     id: "fed",
     label: "Fed signals",
-    desc: "What did the Fed indicate recently in our sources?",
-    question: "What did the Fed indicate recently in our stored summaries?",
+    desc: "What did the Fed signal recently?",
+    question: "What did the Fed signal recently?",
   },
   {
     id: "cpi",
     label: "CPI trend",
-    desc: "Explain CPI-related notes from the stored summaries.",
-    question: "Explain CPI-related notes from the stored summaries.",
+    desc: "What’s the latest CPI trend?",
+    question: "What’s the latest CPI trend?",
+  },
+  {
+    id: "inflation",
+    label: "Inflation",
+    desc: "What’s driving inflation right now?",
+    question: "What’s driving inflation right now?",
   },
 ]
 
@@ -35,17 +47,39 @@ export default function Page() {
   const [answer, setAnswer] = useState<string | null>(null)
   const [sources, setSources] = useState<Array<{ id: number; title: string; url: string }>>([])
   const [confidence, setConfidence] = useState<number | null>(null)
+  const [mode, setMode] = useState<"grounded" | "general" | null>(null)
+  const [lastResolvedTopic, setLastResolvedTopic] = useState<string | null>(null)
+  const [rewriteNote, setRewriteNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   async function ask(q?: string) {
-    const payloadQuery = (q ?? query).trim()
+    setRewriteNote(null)
+    const original = (q ?? query).trim()
+    let payloadQuery = original
+    // If short/pronoun follow-up and we have a lastResolvedTopic, rewrite locally
+    const isShort = original.split(/\s+/).length <= 3
+    const pronounRe = /\b(it|that|this|they)\b/i
+    const followUpPatterns = [/^is it\b/i, /^is that\b/i, /^should I\b/i, /^what about it\b/i, /^why\b/i, /^how\b/i, /^is that bad\b/i]
+    const looksLikeFollowUp = isShort || pronounRe.test(original) || followUpPatterns.some((r) => r.test(original))
+    if (looksLikeFollowUp && lastResolvedTopic) {
+      // If starts with "is it" replace pronoun with topic
+      if (/^is it\b/i.test(original)) {
+        payloadQuery = original.replace(/^is it\b/i, `Is ${lastResolvedTopic}`)
+      } else if (/^is that\b/i.test(original)) {
+        payloadQuery = original.replace(/^is that\b/i, `Is ${lastResolvedTopic}`)
+      } else {
+        payloadQuery = `${original} (context: ${lastResolvedTopic})`
+      }
+      setRewriteNote(`Interpreting as: ${payloadQuery}`)
+    }
+    payloadQuery = payloadQuery.trim()
     if (!payloadQuery) return
     setLoading(true)
     setAnswer(null)
     setSources([])
     setConfidence(null)
-    try {
+      try {
       const res = await fetch("/api/osiris/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,7 +88,28 @@ export default function Page() {
       const data = await res.json()
       if (data?.answer) setAnswer(data.answer)
       if (Array.isArray(data?.sources)) setSources(data.sources)
+      setMode(data?.mode ?? null)
       if (data?.debug?.confidence !== undefined) setConfidence(data.debug.confidence)
+
+      // Update lastResolvedTopic for client-side follow-ups
+      try {
+        const lower = payloadQuery.toLowerCase()
+        // simple definition extraction: "what is X" or "what's X"
+        const defMatch = payloadQuery.match(/^(?:what is|what's|define|explain)\s+(.+?)\??$/i)
+        if (defMatch && defMatch[1]) {
+          // pick first token or known term
+          const topic = defMatch[1].trim().split(/[\s,]+/)[0]
+          setLastResolvedTopic(topic)
+        } else {
+          // try to find finance term in query
+          const terms = ["CPI","GDP","P/E","PE","inflation","yield","ETF","bonds","TSLA","earnings"]
+          const found = terms.find((t) => new RegExp(`\\b${t.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(payloadQuery))
+          if (found) setLastResolvedTopic(found)
+          else setLastResolvedTopic(payloadQuery)
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       setAnswer("Error calling API")
     } finally {
@@ -67,6 +122,9 @@ export default function Page() {
     setAnswer(null)
     setSources([])
     setConfidence(null)
+    setMode(null)
+    setLastResolvedTopic(null)
+    setRewriteNote(null)
   }
 
   // derive cited ids from answer text (if present)
@@ -81,6 +139,10 @@ export default function Page() {
     }
     return Array.from(new Set(ids))
   }, [answer])
+
+  // helper flag for UI badges
+  const hasCitation = answer ? /\[(\d+)\]/.test(answer) : false
+
 
   const filteredSources = React.useMemo(() => {
     if (!citedIds.length) return sources
@@ -120,6 +182,10 @@ export default function Page() {
                     }
                   }}
                 />
+
+                {rewriteNote && (
+                  <div className="mt-2 text-xs text-yellow-300">{rewriteNote}</div>
+                )}
 
                 <div className="flex items-center justify-end gap-3">
                   <Button variant="ghost" onClick={clearAll} className="text-gray-400 hover:text-gray-200">
@@ -164,11 +230,19 @@ export default function Page() {
               <div className="bg-gray-800 border border-gray-600 border-t border-t-yellow-500/15 rounded-xl p-7">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-lg font-semibold text-gray-100">AI Response</h3>
-                  {confidence !== null && answer && answer !== "Insufficient evidence in my sources." && (
-                    <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400">
-                      Confidence: {Math.round(Number(confidence) * 100)}%
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {mode === "grounded" && answer && filteredSources.length > 0 && hasCitation && (
+                      <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-300">Grounded (with sources)</div>
+                    )}
+                    {mode === "general" && answer && (
+                      <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-300">General knowledge</div>
+                    )}
+                    {confidence !== null && answer && answer !== "Insufficient evidence in my sources." && (
+                      <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400">
+                        Confidence: {Math.round(Number(confidence) * 100)}%
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {answer === null ? (
@@ -184,8 +258,8 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Sources card - only render if sources exist */}
-            {filteredSources.length > 0 && (
+            {/* Sources card - only render when grounded mode and sources exist */}
+            {mode === "grounded" && filteredSources.length > 0 && (
             <div className="col-span-1">
               <div className="bg-gray-800 border border-gray-600 rounded-xl p-7">
                 <h3 className="text-lg font-bold text-gray-100 mb-4">Sources</h3>

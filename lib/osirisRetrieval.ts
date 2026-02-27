@@ -2,6 +2,12 @@ import { getOsirisCollection } from "./mongoOsiris";
 
 type Source = { title: string; url: string };
 
+// helper to conditionally log
+const DEBUG = process.env.OSIRIS_DEBUG === "true";
+function osirisLog(...args: any[]) {
+  if (DEBUG) console.log("[OSIRIS DEBUG]", ...args);
+}
+
 export async function retrieveOsiris(query: string) {
   if (!query || !query.trim()) {
     return { passages: [], sourcesFlat: [], confidence: 0 };
@@ -19,16 +25,16 @@ export async function retrieveOsiris(query: string) {
     .limit(12);
 
   const docs = await cursor.toArray();
-  console.log(`[OSIRIS DEBUG] Text search returned ${docs.length} documents for query: "${query}"`);
+  osirisLog(`Text search returned ${docs.length} documents for query: "${query}"`);
 
   if (!docs || docs.length === 0) {
-    console.log(`[OSIRIS DEBUG] No documents found`);
+    osirisLog(`No documents found`);
     return { passages: [], sourcesFlat: [], confidence: 0 };
   }
 
   // capture topTextScore from original textScore ordering
   const topTextScore = docs[0]?.score ? Number(docs[0].score) : 0;
-  console.log(`[OSIRIS DEBUG] topTextScore: ${topTextScore}`);
+  osirisLog(`topTextScore: ${topTextScore}`);
 
   function parseISODate(s: string | undefined) {
     if (!s) return null;
@@ -38,27 +44,39 @@ export async function retrieveOsiris(query: string) {
     return d;
   }
 
-  const tickersInQuery = Array.from(query.matchAll(/\b[A-Z]{1,5}\b/g)).map((m) => m[0]);
+  // boost configuration
+  const TICKER_BOOST_LIST = [
+    "TSLA","NVDA","AAPL","MSFT","AMZN","META","GOOG","GOOGL","JPM","BTC","ETH",
+  ];
+  const CATEGORY_BOOST_MAP: Record<string, string[]> = {
+    earnings: ["earnings","results","quarter","guidance"],
+    macro: ["cpi","inflation","jobs","payroll","gdp","fed","rates","yields","oil","wti","brent"],
+    crypto: ["bitcoin","ethereum","crypto","etf"],
+    markets: ["market","s&p","sp500","index","indices"],
+  };
 
-  const categoryTerms = ["crypto", "earnings", "macro", "markets"];
   const queryLower = query.toLowerCase();
+  const foundTickersInQuery = TICKER_BOOST_LIST.filter((t) => new RegExp(`\\b${t}\\b`, "i").test(query));
 
-  // DEMO: Disable strict recency filtering. Accept all docs.
-  // Apply boosts & filters in JS
+  // Apply boosts & sorting in JS
   const scored = docs
     .map((d: any) => {
-      // base score = textScore
       let score = d.score ? Number(d.score) : 0;
 
-      // ticker boost
-      const docTickers: string[] = Array.isArray(d.tickers) ? d.tickers : [];
-      const tickerMatch = tickersInQuery.some((t) => docTickers.includes(t));
-      if (tickerMatch) score += 2;
+      // ticker boost: if query contains any known ticker and doc lists it
+      if (foundTickersInQuery.length && Array.isArray(d.tickers)) {
+        for (const t of foundTickersInQuery) {
+          if (d.tickers.includes(t)) {
+            score += 2;
+            break;
+          }
+        }
+      }
 
-      // category boost
+      // category boost based on presence of terms
       const cat = typeof d.category === "string" ? d.category.toLowerCase() : "";
-      for (const term of categoryTerms) {
-        if (queryLower.includes(term) && cat.includes(term)) {
+      for (const [catName, terms] of Object.entries(CATEGORY_BOOST_MAP)) {
+        if (terms.some((term) => queryLower.includes(term)) && cat === catName) {
           score += 1.5;
         }
       }
@@ -68,27 +86,30 @@ export async function retrieveOsiris(query: string) {
     .sort((a, b) => b.score - a.score);
 
   const finalList = scored;
-  console.log(`[OSIRIS DEBUG] After boosts analysis, candidate count: ${finalList.length}`);
+  osirisLog(`After boosts analysis, candidate count: ${finalList.length}`);
 
-  // FIXED: Do NOT filter documents during dedup. Keep all for passage construction.
-  // URL deduplication happens only at sourcesFlat level via sourcesMap.
-  const docsForPassages = finalList.slice(0, 6);
-  console.log(`[OSIRIS DEBUG] Documents for passages: ${docsForPassages.length}`);
+  // keep only top 3 for passages
+  const docsForPassages = finalList.slice(0, 3);
+  osirisLog(`Documents for passages: ${docsForPassages.length}`);
 
-  // Build passages: top 6 passages; text = bottomLine + up to 2 bulletPoints
-  // Keep all documents for passage construction (docsForPassages) but dedupe URLs only when building sourcesFlat
+  // Build passages with dedup by bottomLine text
   const passages: Array<{ text: string; sources: Source[]; date: string; category: string; tickers: string[] }> = [];
+  const seenBottoms = new Set<string>();
   const sourcesMap = new Map<string, { id: number; title: string; url: string }>();
   let sourceId = 1;
 
   for (const item of docsForPassages) {
     const d = item.doc;
     const bottom = typeof d.bottomLine === "string" ? d.bottomLine.trim() : "";
-    // Skip documents that do not have a bottomLine (per requirement)
     if (!bottom) {
-      console.log(`[OSIRIS DEBUG] Skipping doc without bottomLine: ${d?.title || "(no title)"}`);
+      osirisLog(`Skipping doc without bottomLine: ${d?.title || "(no title)"}`);
       continue;
     }
+    if (seenBottoms.has(bottom)) {
+      osirisLog(`Skipping duplicate bottomLine passage`);
+      continue;
+    }
+    seenBottoms.add(bottom);
 
     const bullets = Array.isArray(d.bulletPoints) ? d.bulletPoints.slice(0, 2).filter(Boolean) : [];
     let text = bottom;
@@ -96,14 +117,12 @@ export async function retrieveOsiris(query: string) {
       text += "\n" + bullets.map((b: string) => `- ${b}`).join("\n");
     }
 
-    // Collect sources from doc.sources (array of {title,url})
     const sourcesArr: Source[] = [];
     if (Array.isArray(d.sources)) {
       for (const s of d.sources) {
         const url = s?.url || "";
         const title = s?.title || url;
         if (url) {
-          // populate the global sourcesMap used to build sourcesFlat (deduped by url)
           if (!sourcesMap.has(url)) {
             sourcesMap.set(url, { id: sourceId++, title, url });
           }
@@ -115,10 +134,26 @@ export async function retrieveOsiris(query: string) {
     passages.push({ text, sources: sourcesArr, date: d.date || "", category: d.category || "", tickers: Array.isArray(d.tickers) ? d.tickers : [] });
   }
 
-  const sourcesFlat = Array.from(sourcesMap.values()).map((v) => ({ id: v.id, title: v.title, url: v.url }));
+  let sourcesFlat = Array.from(sourcesMap.values()).map((v) => ({ id: v.id, title: v.title, url: v.url }));
+  if (sourcesFlat.length > 5) sourcesFlat = sourcesFlat.slice(0, 5);
 
-  const confidence = topTextScore ? Math.min(1, topTextScore / 10) : 0;
-  console.log(`[OSIRIS DEBUG] Passages built: ${passages.length}, unique URLs in sourcesFlat: ${sourcesFlat.length}, confidence: ${confidence}`);
+  // confidence heuristic by passage count
+  let confidence: number;
+  switch (passages.length) {
+    case 3:
+      confidence = 0.85;
+      break;
+    case 2:
+      confidence = 0.7;
+      break;
+    case 1:
+      confidence = 0.55;
+      break;
+    default:
+      confidence = 0;
+  }
+
+  osirisLog(`Passages built: ${passages.length}, unique URLs in sourcesFlat: ${sourcesFlat.length}, confidence: ${confidence}`);
 
   return { passages, sourcesFlat, confidence };
 }

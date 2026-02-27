@@ -2,6 +2,7 @@ export const NAV_ITEMS = [
     { href: '/', label: 'Dashboard' },
     { href: '/search', label: 'Search' },
     { href: '/osiris', label: 'OSIRIS' },
+    { href: '/osiris/eval', label: 'OSIRIS Eval' },
     // { href: '/watchlist', label: 'Watchlist' },
 ];
 

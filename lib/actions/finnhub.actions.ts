@@ -22,6 +22,21 @@ async function fetchJSON<T>(url: string, revalidateSeconds?: number): Promise<T>
 
 export { fetchJSON };
 
+// fetch quote for a single symbol; used by watchlist page
+export async function getQuote(symbol: string): Promise<{ c?: number; d?: number; dp?: number; t?: number }> {
+  const token = process.env.FINNHUB_API_KEY ?? NEXT_PUBLIC_FINNHUB_API_KEY;
+  if (!token) throw new Error('FINNHUB API key is not configured');
+  const sym = encodeURIComponent(symbol.trim().toUpperCase());
+  const url = `${FINNHUB_BASE_URL}/quote?symbol=${sym}&token=${token}`;
+  try {
+    const quote = await fetchJSON<{ c?: number; d?: number; dp?: number; t?: number }>(url, 10);
+    return quote || {};
+  } catch (err) {
+    console.error('getQuote error for', symbol, err);
+    throw err;
+  }
+}
+
 export async function getNews(symbols?: string[]): Promise<MarketNewsArticle[]> {
   try {
     const range = getDateRange(5);

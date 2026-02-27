@@ -3,7 +3,7 @@ export const NAV_ITEMS = [
     { href: '/search', label: 'Search' },
     { href: '/osiris', label: 'OSIRIS' },
     { href: '/osiris/eval', label: 'OSIRIS Eval' },
-    // { href: '/watchlist', label: 'Watchlist' },
+    { href: '/watchlist', label: 'Watchlist' },
 ];
 
 // Sign-up form select options

@@ -7,38 +7,38 @@ const EXAMPLES = [
   {
     id: "osiris",
     label: "What is OSIRIS?",
-    desc: "Get a brief explanation of the system and how to use it.",
-    question: "What is OSIRIS?",
+    desc: "Understand what the system can and can’t do, plus sample questions.",
+    question: "What is OSIRIS? Explain what you can answer, what you can’t answer, and give 5 example questions I can ask.",
   },
   {
     id: "tsla",
     label: "TSLA earnings",
-    desc: "Pull stored-summary info on Tesla's earnings.",
-    question: "Summarise what the stored summaries say about TSLA earnings.",
+    desc: "What happened in Tesla’s latest earnings?",
+    question: "What happened in Tesla’s latest earnings?",
   },
   {
     id: "bitcoin",
     label: "Bitcoin update",
-    desc: "Fetch what the summaries say about Bitcoin.",
-    question: "Summarise what the stored summaries say about Bitcoin.",
+    desc: "What’s the latest with Bitcoin?",
+    question: "What’s the latest with Bitcoin?",
   },
   {
     id: "fed",
     label: "Fed signals",
-    desc: "Check stored summaries for recent Fed signals.",
-    question: "Summarise what the stored summaries say about recent Fed signals.",
+    desc: "What did the Fed signal recently?",
+    question: "What did the Fed signal recently?",
   },
   {
     id: "cpi",
     label: "CPI trend",
-    desc: "See summary info on CPI and inflation.",
-    question: "Summarise what the stored summaries say about CPI and inflation.",
+    desc: "What’s the latest CPI trend?",
+    question: "What’s the latest CPI trend?",
   },
   {
     id: "inflation",
     label: "Inflation",
-    desc: "Understand drivers of inflation from summaries.",
-    question: "Summarise what the stored summaries say about what’s driving inflation.",
+    desc: "What’s driving inflation right now?",
+    question: "What’s driving inflation right now?",
   },
 ]
 
@@ -52,45 +52,6 @@ export default function Page() {
   const [rewriteNote, setRewriteNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-
-  // Coverage UI state
-  const [coverage, setCoverage] = useState<null | {
-    totalDocs: number
-    categories: { name: string; count: number }[]
-    tickers: { ticker: string; count: number }[]
-    suggestedGroundedQueries: string[]
-  }>(null)
-  const [loadingCoverage, setLoadingCoverage] = useState(false)
-
-  // Retrieval details state
-  const [retrievalDetails, setRetrievalDetails] = useState<Array<{
-    title: string
-    originalScore: number
-    boostedScore: number
-    category: string
-    tickers: string[]
-  }> | null>(null)
-  const [showRetrievalDetails, setShowRetrievalDetails] = useState(false)
-
-  async function fetchCoverage() {
-    setLoadingCoverage(true)
-    try {
-      const res = await fetch("/api/osiris/coverage")
-      const data = await res.json()
-      if (data && !data.error) {
-        setCoverage({
-          totalDocs: data.totalDocs || 0,
-          categories: Array.isArray(data.categories) ? data.categories : [],
-          tickers: Array.isArray(data.tickers) ? data.tickers : [],
-          suggestedGroundedQueries: Array.isArray(data.suggestedGroundedQueries) ? data.suggestedGroundedQueries : [],
-        })
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      setLoadingCoverage(false)
-    }
-  }
 
   async function ask(q?: string) {
     setRewriteNote(null)
@@ -118,8 +79,6 @@ export default function Page() {
     setAnswer(null)
     setSources([])
     setConfidence(null)
-    setRetrievalDetails(null)
-    setShowRetrievalDetails(false)
       try {
       const res = await fetch("/api/osiris/ask", {
         method: "POST",
@@ -131,7 +90,6 @@ export default function Page() {
       if (Array.isArray(data?.sources)) setSources(data.sources)
       setMode(data?.mode ?? null)
       if (data?.debug?.confidence !== undefined) setConfidence(data.debug.confidence)
-      if (Array.isArray(data?.debug?.retrievalDetails)) setRetrievalDetails(data.debug.retrievalDetails)
 
       // Update lastResolvedTopic for client-side follow-ups
       try {
@@ -167,8 +125,6 @@ export default function Page() {
     setMode(null)
     setLastResolvedTopic(null)
     setRewriteNote(null)
-    setRetrievalDetails(null)
-    setShowRetrievalDetails(false)
   }
 
   // derive cited ids from answer text (if present)
@@ -248,49 +204,7 @@ export default function Page() {
                 </div>
 
                 <div className="pt-2">
-                  <div className="text-xs text-gray-400 mb-3 font-medium flex items-center justify-between">
-                    <span>Try a sample query</span>
-                    <Button variant="ghost" onClick={fetchCoverage} className="text-xs text-gray-300 hover:text-yellow-400">
-                      {loadingCoverage ? "Loading…" : "What can OSIRIS answer?"}
-                    </Button>
-                  </div>
-
-                  {/* Coverage results (if loaded) */}
-                  {coverage && (
-                    <div className="mb-4">
-                      <div className="text-sm text-gray-300 mb-2">Corpus coverage: <span className="font-semibold text-gray-100">{coverage.totalDocs}</span> stored summaries</div>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {coverage.categories.slice(0, 12).map((c) => (
-                          <div key={c.name} className="text-xs px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 bg-gray-900">
-                            {c.name} ({c.count})
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {coverage.tickers.slice(0, 30).map((t) => (
-                          <div key={t.ticker} className="text-xs px-2 py-1 rounded-full border border-gray-600 text-gray-300 bg-gray-900">
-                            {t.ticker} ({t.count})
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-xs text-gray-400 mb-2">Suggested grounded queries:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {coverage.suggestedGroundedQueries.map((s, i) => (
-                          <button
-                            key={i}
-                            onClick={() => {
-                              setQuery(s)
-                              setTimeout(() => ask(s), 50)
-                            }}
-                            className="text-xs px-3 py-2 rounded-full border border-gray-600 text-gray-300 bg-gray-900 hover:bg-gray-800 hover:border-yellow-500/60 hover:text-yellow-400 transition-all duration-150 cursor-pointer"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
+                  <div className="text-xs text-gray-400 mb-3 font-medium">Try a sample query</div>
                   <div className="flex flex-wrap gap-4">
                     {EXAMPLES.map((ex) => (
                       <button
@@ -323,9 +237,9 @@ export default function Page() {
                     {mode === "general" && answer && (
                       <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-300">General knowledge</div>
                     )}
-                    {mode === "grounded" && confidence !== null && answer && answer !== "Insufficient evidence in my sources." && (
-                      <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400" title="Based on number and relevance of retrieved passages. Not a probabilistic accuracy score.">
-                        Retrieval confidence (heuristic): {Math.round(Number(confidence) * 100)}%
+                    {confidence !== null && answer && answer !== "Insufficient evidence in my sources." && (
+                      <div className="text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-gray-400">
+                        Confidence: {Math.round(Number(confidence) * 100)}%
                       </div>
                     )}
                   </div>
@@ -333,59 +247,13 @@ export default function Page() {
 
                 {answer === null ? (
                   <div className="text-gray-500 text-sm">Ask a question to get started.</div>
-                ) : answer === "No relevant evidence found in the current corpus. OSIRIS does not generate answers without stored support." ? (
+                ) : answer === "Insufficient evidence in my sources." ? (
                   <div className="text-gray-400 text-sm">
-                    <div>{answer}</div>
+                    <div>No supporting evidence found in stored summaries.</div>
                     <div className="mt-2 text-xs text-gray-500">Try a different query or pick a quick example.</div>
                   </div>
                 ) : (
-                  <>
-                    <div className="text-gray-100 leading-relaxed text-base" style={{ whiteSpace: "pre-wrap", lineHeight: "1.7" }}>{answer}</div>
-                    
-                    {/* Retrieval transparency panel */}
-                    {mode === "grounded" && retrievalDetails && retrievalDetails.length > 0 && (
-                      <div className="mt-6 pt-6 border-t border-gray-700">
-                        <button
-                          onClick={() => setShowRetrievalDetails(!showRetrievalDetails)}
-                          className="text-xs text-gray-400 hover:text-yellow-400 transition-colors duration-150 mb-3"
-                        >
-                          {showRetrievalDetails ? "▼" : "▶"} View retrieval details
-                        </button>
-                        {showRetrievalDetails && (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs border border-gray-700">
-                              <thead className="bg-gray-900">
-                                <tr>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Title</th>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Original Score</th>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Boosted Score</th>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Boost</th>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Category</th>
-                                  <th className="border border-gray-700 px-2 py-1.5 text-left text-gray-300">Tickers</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {retrievalDetails.map((detail, idx) => {
-                                  const boost = detail.boostedScore > detail.originalScore ? "+boost" : detail.boostedScore === detail.originalScore ? "—" : "-";
-                                  const boostColor = detail.boostedScore > detail.originalScore ? "text-green-400" : "text-gray-500";
-                                  return (
-                                    <tr key={idx} className="bg-gray-800">
-                                      <td className="border border-gray-700 px-2 py-1.5 text-gray-300">{detail.title}</td>
-                                      <td className="border border-gray-700 px-2 py-1.5 text-gray-400">{detail.originalScore.toFixed(2)}</td>
-                                      <td className="border border-gray-700 px-2 py-1.5 text-gray-400">{detail.boostedScore.toFixed(2)}</td>
-                                      <td className={`border border-gray-700 px-2 py-1.5 ${boostColor}`}>{boost}</td>
-                                      <td className="border border-gray-700 px-2 py-1.5 text-gray-300">{detail.category}</td>
-                                      <td className="border border-gray-700 px-2 py-1.5 text-gray-300">{detail.tickers.join(", ") || "(none)"}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
+                  <div className="text-gray-100 leading-relaxed text-base" style={{ whiteSpace: "pre-wrap", lineHeight: "1.7" }}>{answer}</div>
                 )}
               </div>
             </div>

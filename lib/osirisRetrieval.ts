@@ -10,16 +10,37 @@ function osirisLog(...args: any[]) {
 
 export async function retrieveOsiris(query: string) {
   if (!query || !query.trim()) {
-    return { passages: [], sourcesFlat: [], confidence: 0 };
+    return { passages: [], sourcesFlat: [], confidence: 0, retrievalDetails: [] };
   }
 
   const collection = await getOsirisCollection();
 
-  // initial text search (server-side)
+  // alias mapping to enrich queries with common tickers/names
+  const ALIASES: Record<string, string> = {
+    tesla: "TSLA",
+    apple: "AAPL",
+    nvidia: "NVDA",
+    microsoft: "MSFT",
+    amazon: "AMZN",
+    meta: "META",
+    google: "GOOGL",
+    bitcoin: "BTC",
+    ethereum: "ETH",
+  };
+
+  let enrichedQuery = query;
+  for (const [name, ticker] of Object.entries(ALIASES)) {
+    const re = new RegExp(`\\b${name}\\b`, "i");
+    if (re.test(query)) {
+      enrichedQuery += ` ${ticker}`;
+    }
+  }
+
+  // initial text search (server-side) using enriched query
   const cursor = collection
     .find(
-      { $text: { $search: query } },
-      { projection: { score: { $meta: "textScore" }, title: 1, url: 1, date: 1, category: 1, tickers: 1, bottomLine: 1, bulletPoints: 1, sources: 1 } }
+      { $text: { $search: enrichedQuery } },
+      { projection: { score: { $meta: "textScore" }, title: 1, url: 1, date: 1, category: 1, tickersMentioned: 1, bottomLine: 1, bulletPoints: 1, sources: 1 } }
     )
     .sort({ score: { $meta: "textScore" } })
     .limit(12);
@@ -29,7 +50,7 @@ export async function retrieveOsiris(query: string) {
 
   if (!docs || docs.length === 0) {
     osirisLog(`No documents found`);
-    return { passages: [], sourcesFlat: [], confidence: 0 };
+    return { passages: [], sourcesFlat: [], confidence: 0, retrievalDetails: [] };
   }
 
   // capture topTextScore from original textScore ordering
@@ -61,12 +82,13 @@ export async function retrieveOsiris(query: string) {
   // Apply boosts & sorting in JS
   const scored = docs
     .map((d: any) => {
-      let score = d.score ? Number(d.score) : 0;
+      const originalScore = d.score ? Number(d.score) : 0;
+      let score = originalScore;
 
       // ticker boost: if query contains any known ticker and doc lists it
-      if (foundTickersInQuery.length && Array.isArray(d.tickers)) {
+      if (foundTickersInQuery.length && Array.isArray(d.tickersMentioned)) {
         for (const t of foundTickersInQuery) {
-          if (d.tickers.includes(t)) {
+          if (d.tickersMentioned.includes(t)) {
             score += 2;
             break;
           }
@@ -81,9 +103,9 @@ export async function retrieveOsiris(query: string) {
         }
       }
 
-      return { doc: d, score };
+      return { doc: d, originalScore, boostedScore: score };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.boostedScore - a.boostedScore);
 
   const finalList = scored;
   osirisLog(`After boosts analysis, candidate count: ${finalList.length}`);
@@ -91,6 +113,18 @@ export async function retrieveOsiris(query: string) {
   // keep only top 3 for passages
   const docsForPassages = finalList.slice(0, 3);
   osirisLog(`Documents for passages: ${docsForPassages.length}`);
+
+  // Build retrievalDetails from top 3
+  const retrievalDetails = docsForPassages.map((item) => {
+    const d = item.doc;
+    return {
+      title: d.title || (Array.isArray(d.sources) && d.sources[0]?.title) || "(untitled)",
+      originalScore: item.originalScore,
+      boostedScore: item.boostedScore,
+      category: d.category || "(none)",
+      tickers: Array.isArray(d.tickersMentioned) ? d.tickersMentioned : [],
+    };
+  });
 
   // Build passages with dedup by bottomLine text
   const passages: Array<{ text: string; sources: Source[]; date: string; category: string; tickers: string[] }> = [];
@@ -131,7 +165,7 @@ export async function retrieveOsiris(query: string) {
       }
     }
 
-    passages.push({ text, sources: sourcesArr, date: d.date || "", category: d.category || "", tickers: Array.isArray(d.tickers) ? d.tickers : [] });
+    passages.push({ text, sources: sourcesArr, date: d.date || "", category: d.category || "", tickers: Array.isArray(d.tickersMentioned) ? d.tickersMentioned : [] });
   }
 
   let sourcesFlat = Array.from(sourcesMap.values()).map((v) => ({ id: v.id, title: v.title, url: v.url }));
@@ -155,7 +189,7 @@ export async function retrieveOsiris(query: string) {
 
   osirisLog(`Passages built: ${passages.length}, unique URLs in sourcesFlat: ${sourcesFlat.length}, confidence: ${confidence}`);
 
-  return { passages, sourcesFlat, confidence };
+  return { passages, sourcesFlat, confidence, retrievalDetails };
 }
 
 export default retrieveOsiris;

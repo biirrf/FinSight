@@ -2,6 +2,7 @@ import React from 'react'
 import Link from "next/link"
 import Image from "next/image"
 import NavItems from './NavItems'
+import MobileNav from './MobileNav'
 import UserDropdown from './UserDropdown'
 import { searchStocks } from '@/lib/actions/finnhub.actions'
 
@@ -14,10 +15,15 @@ const Header = async ({ user }: {user : User}) => {
             <Link href = "/">
                 <Image src = "/assets/icons/logo.svg" alt = "FinSight Logo" width = {140} height = {32} className="h-8 w-auto cursor-pointer"/>
             </Link>
-            <nav className="hidden sm:block">
-                <NavItems initialStocks={initialStocks}/>
-            </nav>
-            <UserDropdown user = {user} initialStocks={initialStocks}/>
+            <div className="flex items-center gap-3">
+                <nav className="hidden sm:block">
+                    <NavItems initialStocks={initialStocks}/>
+                </nav>
+                <div className="sm:hidden">
+                    <MobileNav initialStocks={initialStocks} />
+                </div>
+                <UserDropdown user = {user} initialStocks={initialStocks}/>
+            </div>
         </div>
      </header>       
   )

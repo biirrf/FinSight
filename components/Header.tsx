@@ -16,10 +16,10 @@ const Header = async ({ user }: {user : User}) => {
                 <Image src = "/assets/icons/logo.svg" alt = "FinSight Logo" width = {140} height = {32} className="h-8 w-auto cursor-pointer"/>
             </Link>
             <div className="flex items-center gap-3">
-                <nav className="hidden sm:block">
+                <nav className="hidden md:block">
                     <NavItems initialStocks={initialStocks}/>
                 </nav>
-                <div className="sm:hidden">
+                <div className="md:hidden">
                     <MobileNav initialStocks={initialStocks} />
                 </div>
                 <UserDropdown user = {user} initialStocks={initialStocks}/>

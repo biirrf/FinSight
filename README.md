@@ -42,7 +42,7 @@ Debounced stock search experience for quickly navigating to supported securities
 
 Personalised sign-up flow capturing user preferences including investment goals, risk tolerance and preferred industries, with client-side validation.
 
-![FinSight User Onboarding](docs/screenshots/signup.png)
+![FinSight User Onboarding](docs/screenshots/sign-up.png)
 
 ## Key Features
 

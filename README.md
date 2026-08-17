@@ -4,7 +4,7 @@ AI-powered financial intelligence dashboard combining live market data, watchlis
 
 > **Final Year Computer Science Project - First Class Grade**
 
-**Live Demo:** https://fin-sight-swart.vercel.app
+FinSight is presented here as a technical case study demonstrating the architecture, features and engineering decisions behind the project.
 
 ## Key Features
 

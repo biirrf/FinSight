@@ -6,40 +6,79 @@ AI-powered financial intelligence dashboard combining live market data, watchlis
 
 FinSight is presented here as a technical case study demonstrating the architecture, features and engineering decisions behind the project.
 
+## Screenshots
+
+### Dashboard
+
+Market overview with heatmaps, top stories and at-a-glance financial trends.
+
+![FinSight Dashboard](docs/screenshots/dashboard.png)
+
+### Stock Detail Page
+
+Detailed stock analysis view with charting, technical indicators, company profile and financial metrics.
+
+![Stock Detail Page](docs/screenshots/stock-detail.png)
+
+### OSIRIS
+
+Retrieval-augmented financial research interface for citation-backed market questions.
+
+![OSIRIS](docs/screenshots/osiris.png)
+
+### Watchlist
+
+Personal watchlist functionality for tracking selected symbols and price movement.
+
+![Watchlist](docs/screenshots/watchlist.png)
+
+### Search
+
+Debounced stock search experience for quickly navigating to supported securities.
+
+![Search](docs/screenshots/search.png)
+
+### User Onboarding
+
+Personalised sign-up flow capturing user preferences including investment goals, risk tolerance and preferred industries, with client-side validation.
+
+![FinSight User Onboarding](docs/screenshots/signup.png)
+
 ## Key Features
 
-* Interactive financial dashboard with TradingView market widgets
-* Dynamic stock detail pages with charts, technical analysis, company profiles and financial data
-* Stock search with debounced API requests
-* User authentication and protected routes
-* Personal watchlists backed by MongoDB
-* Automated financial-news summaries based on watchlist symbols
-* Background workflows powered by Inngest
-* AI-generated email content delivered through Nodemailer
-* OSIRIS retrieval-augmented research workflow with citation-backed responses
+- Interactive financial dashboard with TradingView market widgets
+- Dynamic stock detail pages with charting, technical analysis, company profiles and financial data
+- Stock search with debounced API requests
+- User authentication and protected routes
+- Personal watchlists backed by MongoDB
+- Automated financial-news summaries based on watchlist symbols
+- Background workflows powered by Inngest
+- AI-generated email content delivered through Nodemailer
+- OSIRIS retrieval-augmented research workflow with citation-backed responses
+- Personalised onboarding based on investment preferences
 
 ## Technical Architecture
 
 ```mermaid
 flowchart LR
-    U[User] --> N[Next.js Application]
+    User["User"] --> App["Next.js Application"]
 
-    N --> A[Better Auth]
-    A --> M[(MongoDB)]
+    App --> Auth["Better Auth"]
+    Auth --> DB[("MongoDB")]
 
-    N --> TV[TradingView]
-    N --> F[Finnhub]
+    App --> TradingView["TradingView"]
+    App --> Finnhub["Finnhub API"]
 
-    N --> O[OSIRIS RAG]
-    O --> AI[LLM Providers]
+    App --> OSIRIS["OSIRIS RAG"]
+    OSIRIS --> LLM["AI / LLM Providers"]
 
-    N --> I[Inngest]
-    I --> F
-    I --> AI
-    I --> E[Nodemailer]
+    App --> Inngest["Inngest"]
+    Inngest --> Finnhub
+    Inngest --> LLM
+    Inngest --> Email["Nodemailer"]
 
-    E --> U
-    N --> M
+    Email --> User
+    App --> DB
 ```
 
 FinSight uses the Next.js App Router for the application interface and server-side logic.
@@ -50,6 +89,8 @@ Market visualisation is provided through reusable TradingView integrations, whil
 
 Inngest coordinates asynchronous workflows including onboarding and automated news-summary generation.
 
+OSIRIS provides retrieval-augmented research functionality by combining indexed context with foundation-model responses and supporting citations.
+
 ## What I Built
 
 ### Market Dashboard
@@ -58,13 +99,13 @@ Built a reusable TradingView integration layer rather than embedding every finan
 
 Centralised configuration supports multiple reusable widgets including:
 
-* Market overview
-* Stock heatmaps
-* Candlestick charts
-* Baseline charts
-* Technical analysis
-* Company profiles
-* Financial information
+- Market overview
+- Stock heatmaps
+- Candlestick charts
+- Baseline charts
+- Technical analysis
+- Company profiles
+- Financial information
 
 This reduced duplication and made new financial views easier to implement.
 
@@ -74,12 +115,12 @@ Implemented stock search with debounced requests to reduce unnecessary external 
 
 Dynamic stock routes provide dedicated views containing:
 
-* Symbol information
-* Candlestick charts
-* Baseline charts
-* Technical analysis
-* Company profiles
-* Financial information
+- Symbol information
+- Candlestick charts
+- Baseline charts
+- Technical analysis
+- Company profiles
+- Financial information
 
 ### Authentication and Persistence
 
@@ -87,12 +128,14 @@ Integrated Better Auth with MongoDB and Mongoose.
 
 Implemented:
 
-* Sign-up
-* Sign-in
-* Session handling
-* Protected routes
-* Persistent user data
-* User-facing authentication feedback
+- Sign-up
+- Sign-in
+- Session handling
+- Protected routes
+- Persistent user data
+- Client-side validation
+- User-facing authentication feedback
+- Personalised onboarding preferences
 
 Database connection caching was used to prevent unnecessary MongoDB connections during development and hot reloads.
 
@@ -138,13 +181,13 @@ Scheduled and long-running processes are handled through Inngest rather than blo
 
 Application responsibilities are separated across dedicated modules for:
 
-* Authentication
-* Database access
-* Market-data integration
-* Background jobs
-* UI components
-* Financial research
-* AI workflows
+- Authentication
+- Database access
+- Market-data integration
+- Background jobs
+- UI components
+- Financial research
+- AI workflows
 
 ### Secrets Management
 
@@ -154,29 +197,29 @@ Database credentials, authentication secrets and external API keys are managed t
 
 ### Application
 
-* Next.js
-* React
-* TypeScript
-* Tailwind CSS
-* Radix UI
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Radix UI
 
 ### Data and Authentication
 
-* MongoDB
-* Mongoose
-* Better Auth
+- MongoDB
+- Mongoose
+- Better Auth
 
 ### Financial Data
 
-* TradingView
-* Finnhub
+- TradingView
+- Finnhub
 
 ### AI and Automation
 
-* OpenAI-compatible models
-* Google Generative AI
-* Inngest
-* Nodemailer
+- OpenAI-compatible models
+- Google Generative AI
+- Inngest
+- Nodemailer
 
 ## Project Structure
 

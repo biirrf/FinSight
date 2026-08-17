@@ -2,11 +2,7 @@
 
 AI-powered financial intelligence dashboard combining live market data, watchlists, automated news summaries and retrieval-augmented research.
 
-## Overview
-
-FinSight was built as a final-year Computer Science project focused on making financial research easier to navigate in one place.
-
-The application combines interactive market data, stock-level analysis, user watchlists, automated financial-news summaries and an OSIRIS retrieval-augmented generation workflow for contextual research and citation-backed answers.
+> **Final Year Computer Science Project - First Class Grade**
 
 **Live Demo:** https://fin-sight-swart.vercel.app
 
@@ -247,6 +243,8 @@ http://localhost:3000
 npm run test-db
 ```
 
-## Project Context
+## Academic Result
 
-FinSight was developed as a final-year Computer Science project and demonstrates practical work across full-stack development, authentication, persistent data, external APIs, asynchronous processing, AI integration and financial-data visualisation.
+FinSight was developed as my final-year Computer Science project at the University of Central Lancashire and received a **First Class grade**.
+
+The project demonstrates practical work across full-stack development, authentication, persistent data, external APIs, asynchronous processing, AI integration, retrieval-augmented generation and financial-data visualisation.
